@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from mcp.server.transport_security import TransportSecuritySettings
 
 import uvicorn
 from mcp.server.fastmcp import FastMCP
@@ -43,6 +44,27 @@ mcp = FastMCP(
         "concepts (codelists), public services, and catalogs published by Swiss "
         "federal and cantonal bodies. All data is returned in the language(s) "
         "available on the platform (DE, FR, IT, EN)."
+    ),
+    host="0.0.0.0",
+    port=get_server_port(),
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[
+            "mcp.i14y.d.c.bfs.admin.ch",
+            "mcp.i14y.d.c.bfs.admin.ch:443",
+            "ca-iop-mcp.livelybeach-69b99234.switzerlandnorth.azurecontainerapps.io",
+            "ca-iop-mcp.livelybeach-69b99234.switzerlandnorth.azurecontainerapps.io:443",
+            "localhost",
+            "localhost:*",
+            "127.0.0.1",
+            "127.0.0.1:*",
+        ],
+        allowed_origins=[
+            "https://mcp.i14y.d.c.bfs.admin.ch",
+            "https://ca-iop-mcp.livelybeach-69b99234.switzerlandnorth.azurecontainerapps.io",
+            "http://localhost:*",
+            "http://127.0.0.1:*",
+        ],
     ),
 )
 register_tools(mcp)
