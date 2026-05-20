@@ -27,7 +27,7 @@ jobs:
 
       - name: Compose image tag
         run: |
-          TAG="$(date +"%Y%m%d%H%M%S")-${{ github.run_number }}"
+          TAG="$(date +"%Y%m%d%H%M%S")"
           echo "DOCKER_VERSION=$TAG" >> $GITHUB_ENV
           echo "SHA=${{ github.sha }}" >> $GITHUB_ENV
 
