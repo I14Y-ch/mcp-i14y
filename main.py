@@ -74,9 +74,6 @@ register_tools(mcp)
 async def health(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "platform": "i14y", "version": "0.1.0"})
 
-async def test(request: Request) -> JSONResponse:
-    return JSONResponse({"test":"ok"})
-
 
 # ── Accept header compatibility middleware ─────────────────────────────────────
 class MCPAcceptPatchMiddleware:
@@ -121,7 +118,6 @@ app = Starlette(
     lifespan=lifespan,
     routes=[
         Route("/health", health),
-        Route("/test", test),
     ],
 )
 
