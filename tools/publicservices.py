@@ -20,11 +20,19 @@ def register(mcp: FastMCP) -> None:
         publicservice_identifier: str | None = None,
         page: int = 1,
         page_size: int = 25,
-    ) -> str:
+        fetch_all: bool = False,
+        max_pages: int | None = None,
+    ) -> dict:
         """List public services registered on the Swiss I14Y platform.
 
-        Public services are administrative services offered by Swiss federal,
-        cantonal, or communal bodies to citizens, businesses, or other organisations.
+        Public services are administrative services offered by Swiss federal, cantonal,
+        or communal bodies to citizens, businesses, or other organisations.
+
+        Pagination:
+            By default this returns one page and includes pagination metadata from
+            the API response headers. If fetch_all=True, all available pages are
+            fetched unless max_pages is set. Use fetch_all=True only when the user
+            explicitly asks for all matching public services or a complete scan.
 
         Args:
             publisher_identifier: Filter by the publishing organisation's identifier.
@@ -35,24 +43,40 @@ def register(mcp: FastMCP) -> None:
             publicservice_identifier: Filter by the public service's own identifier.
             page: Page number (starts at 1).
             page_size: Number of results per page (default 25).
+            fetch_all: Fetch all pages instead of only one page.
+            max_pages: Optional maximum number of pages to fetch when fetch_all=True.
 
         Returns:
-            JSON string with paginated public service results.
+            JSON string with public service results and pagination metadata.
         """
+        common_params = dict(
+            publisherIdentifier=publisher_identifier,
+            registrationStatus=registration_status,
+            publicationLevel=publication_level,
+            accessRights=access_rights,
+            publicserviceIdentifier=publicservice_identifier,
+        )
+
         async with I14YApiClient() as client:
+            if fetch_all:
+                return await client.get_all_pages(
+                    "/publicservices",
+                    page_size=page_size,
+                    max_pages=max_pages,
+                    resource_type="publicservice",
+                    **common_params,
+                )
+
             return await client.get(
                 "/publicservices",
-                publisherIdentifier=publisher_identifier,
-                registrationStatus=registration_status,
-                publicationLevel=publication_level,
-                accessRights=access_rights,
-                publicserviceIdentifier=publicservice_identifier,
                 page=page,
                 pageSize=page_size,
+                resource_type="publicservice",
+                **common_params,
             )
 
     @mcp.tool()
-    async def get_publicservice(publicservice_id: str) -> str:
+    async def get_publicservice(publicservice_id: str) -> dict:
         """Get detailed metadata for a specific public service by its ID.
 
         Args:
@@ -62,10 +86,13 @@ def register(mcp: FastMCP) -> None:
             JSON string with full public service metadata.
         """
         async with I14YApiClient() as client:
-            return await client.get(f"/publicservices/{publicservice_id}")
+            return await client.get(
+                f"/publicservices/{publicservice_id}",
+                resource_type="publicservice",
+            )
 
     @mcp.tool()
-    async def get_publicservice_by_identifier(identifier: str) -> str:
+    async def get_publicservice_by_identifier(identifier: str) -> dict:
         """Get a public service by its human-readable identifier (not UUID).
 
         Args:
@@ -78,7 +105,7 @@ def register(mcp: FastMCP) -> None:
             return await client.get(f"/PublicServices/by-identifier/{identifier}")
 
     @mcp.tool()
-    async def get_publicservice_relations(publicservice_id: str) -> str:
+    async def get_publicservice_relations(publicservice_id: str) -> dict:
         """Get public services related to a given public service.
 
         Returns other public services that are semantically linked to this one

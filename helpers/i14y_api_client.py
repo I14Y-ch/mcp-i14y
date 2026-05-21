@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-import json
 import logging
+from typing import Any
 
 import httpx
 
 from helpers.env_config import get_base_url
+from helpers.iri_links import enrich_response_with_iris
 
 __all__ = ["I14YApiClient"]
 
 logger = logging.getLogger(__name__)
 
 VERSION = "0.1.0"
-USER_AGENT = f"mcp-i14y/{VERSION} (https://github.com/fgouzi/mcp-i14y)"
+USER_AGENT = f"mcp-i14y/{VERSION} (https://github.com/I14Y-ch/mcp-i14y)"
 
 # Content types returned as plain text (not parsed as JSON)
 _PLAIN_TEXT_TYPES = {"text/turtle", "application/rdf+xml", "text/csv", "text/plain"}
@@ -25,11 +26,77 @@ def _build_params(**kwargs: object) -> dict[str, str]:
     return {k: str(v) for k, v in kwargs.items() if v is not None}
 
 
+def _int_header(headers: httpx.Headers, name: str) -> int | None:
+    value = headers.get(name)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _pagination_from_headers(headers: httpx.Headers) -> dict[str, Any] | None:
+    """Extract I14Y pagination metadata from x-paging-* response headers."""
+    page = _int_header(headers, "x-paging-page")
+    page_size = _int_header(headers, "x-paging-pagesize")
+    total_pages = _int_header(headers, "x-paging-totalpages")
+    total_rows = _int_header(headers, "x-paging-totalrows")
+
+    if page is None and page_size is None and total_pages is None and total_rows is None:
+        return None
+
+    has_more = page is not None and total_pages is not None and page < total_pages
+
+    return {
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "total_rows": total_rows,
+        "has_more": has_more,
+        "next_page": page + 1 if has_more and page is not None else None,
+    }
+
+
+def _extract_items(payload: Any) -> list[Any]:
+    """Extract list items from common I14Y response shapes."""
+    if isinstance(payload, list):
+        return payload
+
+    if isinstance(payload, dict):
+        for key in ("data", "items", "results"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return value
+
+    return []
+
+
+def _wrap_json_with_pagination(data: Any, headers: httpx.Headers, path: str) -> dict[str, Any]:
+    """Wrap JSON API responses with pagination metadata when available."""
+    pagination = _pagination_from_headers(headers)
+
+    if pagination is None:
+        return {"data": data}
+
+    next_page = pagination["next_page"]
+
+    return {
+        "pagination": pagination,
+        "pagination_instruction": (
+            f"More pages are available for {path}. Call the same tool again "
+            f"with page={next_page} unless enough relevant results have been collected."
+            if pagination["has_more"]
+            else "No more pages available."
+        ),
+        "data": data,
+    }
+
+
 class I14YApiClient:
     """Reusable async HTTP client for the I14Y Public API.
 
     Usage::
-
         async with I14YApiClient() as client:
             data = await client.get("/datasets", page=1, pageSize=25)
     """
@@ -49,78 +116,154 @@ class I14YApiClient:
     async def __aexit__(self, *_: object) -> None:
         if self._client:
             await self._client.aclose()
-            self._client = None
+        self._client = None
 
-    async def get(self, path: str, **params: object) -> str:
-        """Perform a GET request and return the response as a JSON string or plain text.
-
-        Args:
-            path: API path relative to the base URL (e.g. "/datasets").
-            **params: Query parameters; None values are stripped automatically.
-
-        Returns:
-            JSON-serialised string for JSON responses, or raw text for RDF/TTL/CSV.
-
-        Raises:
-            RuntimeError: If called outside of an async context manager.
-        """
+    async def _get_response(self, path: str, **params: object) -> httpx.Response:
+        """Perform a raw GET request and return the httpx response."""
         if self._client is None:
             raise RuntimeError("I14YApiClient must be used as an async context manager.")
 
         query = _build_params(**params)
         logger.debug("GET %s params=%s", path, query)
 
+        response = await self._client.get(path, params=query)
+        response.raise_for_status()
+        return response
+
+    async def get(
+        self,
+        path: str,
+        resource_type: str | None = None,
+        **params: object,
+    ) -> dict[str, Any]:
+        """Perform a GET request and return a structured object.
+
+        Args:
+            path: API path relative to the base URL, e.g. "/datasets".
+            **params: Query parameters; None values are stripped automatically.
+
+        Returns:
+            A dict. JSON responses are returned under the ``data`` key, and
+            paginated JSON endpoints also include ``pagination`` metadata derived
+            from x-paging-* response headers. Text/RDF/CSV responses are returned
+            as ``{"content_type": ..., "text": ...}``.
+        """
         try:
-            response = await self._client.get(path, params=query)
-            response.raise_for_status()
+            response = await self._get_response(path, **params)
         except httpx.HTTPStatusError as exc:
-            return json.dumps(
-                {
-                    "error": f"I14Y API returned HTTP {exc.response.status_code}",
-                    "url": str(exc.request.url),
-                }
-            )
+            return {
+                "error": f"I14Y API returned HTTP {exc.response.status_code}",
+                "url": str(exc.request.url),
+            }
         except httpx.RequestError as exc:
-            return json.dumps({"error": f"Network error while contacting I14Y API: {exc}"})
+            return {"error": f"Network error while contacting I14Y API: {exc}"}
 
         content_type = response.headers.get("content-type", "")
+
         if any(ct in content_type for ct in _PLAIN_TEXT_TYPES):
-            return response.text
+            return {"content_type": content_type, "text": response.text}
 
         try:
-            return json.dumps(response.json(), ensure_ascii=False, indent=2)
+            data = response.json()
+
+            if resource_type:
+                data = enrich_response_with_iris(data, resource_type)
+
+            return _wrap_json_with_pagination(data, response.headers, path)
         except Exception:
-            return response.text
+            return {"content_type": content_type, "text": response.text}
 
     async def get_all_pages(
         self,
         path: str,
-        max_items: int = 500,
+        page_size: int = 100,
+        max_pages: int | None = None,
+        resource_type: str | None = None,
         **params: object,
-    ) -> list[dict]:
-        """Fetch all pages of a list endpoint up to max_items total.
+    ) -> dict[str, Any]:
+        """Fetch all pages of a list endpoint unless max_pages is provided.
 
         Args:
-            path: API path relative to the base URL (e.g. "/datasets").
-            max_items: Maximum number of items to return across all pages.
+            path: API path relative to the base URL, e.g. "/datasets".
+            page_size: Number of results per page.
+            max_pages: Optional safety limit. If None, fetches until the API says
+                there are no more pages.
             **params: Additional query parameters; None values are stripped.
 
         Returns:
-            Flat list of resource dicts from the ``data`` array across all pages.
+            A dict containing all collected items and pagination summary.
         """
-        results: list[dict] = []
+        results: list[Any] = []
         page = 1
-        while len(results) < max_items:
-            raw = await self.get(path, page=page, pageSize=100, **params)
+        pages_fetched = 0
+        total_pages: int | None = None
+        total_rows: int | None = None
+
+        while True:
             try:
-                data = json.loads(raw)
+                response = await self._get_response(
+                    path,
+                    page=page,
+                    pageSize=page_size,
+                    **params,
+                )
+            except httpx.HTTPStatusError as exc:
+                return {
+                    "error": f"I14Y API returned HTTP {exc.response.status_code}",
+                    "url": str(exc.request.url),
+                    "pages_fetched": pages_fetched,
+                    "results_so_far": results,
+                }
+            except httpx.RequestError as exc:
+                return {
+                    "error": f"Network error while contacting I14Y API: {exc}",
+                    "pages_fetched": pages_fetched,
+                    "results_so_far": results,
+                }
+
+            try:
+                payload = response.json()
             except Exception:
+                return {
+                    "error": "Expected JSON response while fetching all pages.",
+                    "pages_fetched": pages_fetched,
+                    "results_so_far": results,
+                }
+
+            pagination = _pagination_from_headers(response.headers) or {}
+            total_pages = pagination.get("total_pages", total_pages)
+            total_rows = pagination.get("total_rows", total_rows)
+
+            items = _extract_items(payload)
+            if not items:
                 break
-            if "error" in data:
-                break
-            items = data.get("data", [])
+
+            if resource_type:
+                items = enrich_response_with_iris(items, resource_type)
+
             results.extend(items)
-            if len(items) < 100:  # reached the last page
+            pages_fetched += 1
+
+            has_more = bool(pagination.get("has_more"))
+            if not has_more:
                 break
-            page += 1
-        return results[:max_items]
+
+            if max_pages is not None and pages_fetched >= max_pages:
+                break
+
+            page = int(pagination.get("next_page") or page + 1)
+
+        is_complete = total_pages is None or pages_fetched >= total_pages
+
+        return {
+            "pagination": {
+                "page_size": page_size,
+                "pages_fetched": pages_fetched,
+                "total_pages": total_pages,
+                "total_rows": total_rows,
+                "is_complete": is_complete,
+                "truncated": not is_complete,
+                "max_pages": max_pages,
+            },
+            "data": results,
+        }

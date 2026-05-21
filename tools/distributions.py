@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 import httpx
 
@@ -14,7 +15,7 @@ __all__ = ["register"]
 logger = logging.getLogger(__name__)
 
 VERSION = "0.1.0"
-USER_AGENT = f"mcp-i14y/{VERSION} (https://github.com/fgouzi/mcp-i14y)"
+USER_AGENT = f"mcp-i14y/{VERSION} (https://github.com/I14Y-ch/mcp-i14y)"
 
 # Content types that are safe to read as text
 _TEXT_TYPES = {
@@ -61,7 +62,7 @@ def register(mcp: FastMCP) -> None:
     async def get_distribution_content(
         download_url: str,
         max_kb: int = 200,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Fetch and return the content of a DCAT distribution file.
 
         Use this after get_dataset() to read the actual data behind a distribution.
@@ -74,18 +75,18 @@ def register(mcp: FastMCP) -> None:
 
         Typical workflow:
             1. dataset = get_dataset(dataset_id)
-            2. url = dataset["distributions"][0]["downloadUrl"]["uri"]
+            2. url = dataset["data"]["distributions"][0]["downloadUrl"]["uri"]
             3. content = get_distribution_content(url)
 
         Args:
             download_url: The direct download URL of the distribution
                 (value of downloadUrl.uri from a distribution object).
             max_kb: Maximum content size to return in kilobytes (default 200 KB).
-                Larger files are truncated with a warning appended.
+                Larger files are truncated with a warning.
 
         Returns:
-            File content as a string (JSON pretty-printed, CSV/XML as-is),
-            or a JSON error object if the URL is unreachable or content is binary.
+            Structured object containing content metadata and either parsed JSON
+            or text content.
         """
         max_bytes = max_kb * 1024
 
@@ -95,20 +96,30 @@ def register(mcp: FastMCP) -> None:
                 follow_redirects=True,
                 timeout=30.0,
             ) as client:
-                # Stream the response to avoid downloading huge files entirely
                 async with client.stream("GET", download_url) as response:
                     response.raise_for_status()
 
                     content_type = response.headers.get("content-type", "")
+                    ct_base = content_type.split(";")[0].strip().lower()
 
                     if _is_binary(content_type):
-                        ct = content_type.split(";")[0].strip()
-                        return json.dumps({
+                        return {
                             "error": (
-                                f"Binary content type '{ct}' cannot be returned as text. "
-                                "Download the file directly from: " + download_url
-                            )
-                        })
+                                f"Binary content type '{ct_base}' cannot be returned as text."
+                            ),
+                            "url": download_url,
+                            "content_type": content_type,
+                        }
+
+                    if not _is_text(content_type):
+                        return {
+                            "error": (
+                                f"Unsupported content type '{ct_base}'. "
+                                "Only text-like distributions can be returned."
+                            ),
+                            "url": download_url,
+                            "content_type": content_type,
+                        }
 
                     chunks: list[bytes] = []
                     total = 0
@@ -116,7 +127,6 @@ def register(mcp: FastMCP) -> None:
 
                     async for chunk in response.aiter_bytes(chunk_size=4096):
                         if total + len(chunk) > max_bytes:
-                            # Take only what fits
                             remaining = max_bytes - total
                             chunks.append(chunk[:remaining])
                             truncated = True
@@ -124,32 +134,38 @@ def register(mcp: FastMCP) -> None:
                         chunks.append(chunk)
                         total += len(chunk)
 
-                    raw = b"".join(chunks).decode("utf-8", errors="replace")
+                    text = b"".join(chunks).decode("utf-8", errors="replace")
 
-                    # Pretty-print JSON if applicable
-                    ct_base = content_type.split(";")[0].strip().lower()
+                    result: dict[str, Any] = {
+                        "url": download_url,
+                        "content_type": content_type,
+                        "truncated": truncated,
+                        "max_kb": max_kb,
+                    }
+
                     if "json" in ct_base:
                         try:
-                            raw = json.dumps(json.loads(raw), ensure_ascii=False, indent=2)
+                            result["data"] = json.loads(text)
                         except Exception:
-                            pass
+                            result["text"] = text
+                    else:
+                        result["text"] = text
 
                     if truncated:
-                        raw += (
-                            f"\n\n[TRUNCATED — content exceeds {max_kb} KB. "
-                            f"Only the first {max_kb} KB are shown. "
-                            f"Full file: {download_url}]"
+                        result["warning"] = (
+                            f"Content exceeds {max_kb} KB. Only the first {max_kb} KB "
+                            "are shown."
                         )
 
-                    return raw
+                    return result
 
         except httpx.HTTPStatusError as exc:
-            return json.dumps({
+            return {
                 "error": f"HTTP {exc.response.status_code} fetching distribution",
                 "url": download_url,
-            })
+            }
         except httpx.RequestError as exc:
-            return json.dumps({
+            return {
                 "error": f"Network error fetching distribution: {exc}",
                 "url": download_url,
-            })
+            }

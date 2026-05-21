@@ -16,7 +16,7 @@ __all__ = ["register"]
 
 def register(mcp: FastMCP) -> None:
     @mcp.tool()
-    async def list_vocabularies() -> str:
+    async def list_vocabularies() -> dict:
         """List all controlled vocabularies available on the I14Y platform.
 
         Controlled vocabularies define valid values for DCAT-AP metadata fields.
@@ -38,7 +38,7 @@ def register(mcp: FastMCP) -> None:
             return await client.get("/Vocabularies/configurations")
 
     @mcp.tool()
-    async def get_vocabulary(identifier: str) -> str:
+    async def get_vocabulary(identifier: str) -> dict:
         """Get all entries of a controlled vocabulary by its identifier.
 
         Use this to retrieve the valid values for a DCAT-AP metadata field.

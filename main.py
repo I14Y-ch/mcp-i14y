@@ -41,9 +41,45 @@ mcp = FastMCP(
     instructions=(
         "You are connected to the Swiss I14Y Interoperability Platform. "
         "Use the available tools to list and retrieve datasets, data services, "
-        "concepts (codelists), public services, and catalogs published by Swiss "
-        "federal and cantonal bodies. All data is returned in the language(s) "
-        "available on the platform (DE, FR, IT, EN)."
+        "concepts, codelists, public services, catalogs, mapping tables, and agents. "
+
+        "Tool selection rules: "
+        "Use list_* tools for browsing, discovery, inventory, overview, counting, "
+        "comparison, classification, mapping, and exhaustive or semi-exhaustive analysis. "
+        "Use fetch_all=True when a complete candidate set is needed. "
+
+        "Use full_text_search_resources only when the user explicitly asks to search "
+        "or provides a concrete search term, exact title, identifier, acronym, or "
+        "domain-specific keyword. Do not invent search queries yourself. "
+
+        "Do not derive full-text search queries from schema property names, TTL/RDF/SHACL "
+        "property identifiers, CSV column names, JSON keys, database column names, local "
+        "dataset attribute codes, or arbitrary field labels extracted from user-provided files. "
+
+        "For schema, TTL, RDF, SHACL, CSV header, JSON schema, database schema, or "
+        "data-structure mapping tasks, first inspect the provided structure, then retrieve "
+        "candidate concepts with list_concepts(fetch_all=True) or "
+        "list_concept_candidates_for_mapping(). Compare candidates semantically using labels, "
+        "descriptions, identifiers, publisher, concept type, datatype, and metadata. "
+
+        "If the user did not provide a concrete search query, use list_* tools with "
+        "fetch_all=True and then filter, compare, or summarize the returned structured data. "
+
+        "Pagination rule: when a result contains pagination.has_more=true, do not assume "
+        "the first page is exhaustive. Continue with pagination.next_page or use fetch_all=True "
+        "when a complete overview is needed. "
+
+        "IRI rule: when a tool result contains an iri field, use it as the canonical "
+        "Linked Data IRI for that resource. Concept IRIs follow "
+        "https://register.ld.admin.ch/i14y/concept/{identifier}/version/{version}. "
+        "Dataset IRIs follow https://register.ld.admin.ch/i14y/dataset/{identifier}. "
+        "Data service IRIs follow https://register.ld.admin.ch/i14y/dataservice/{identifier}. "
+        "Public service IRIs follow https://register.ld.admin.ch/i14y/publicservice/{identifier}. "
+        "Mapping table IRIs follow "
+        "https://register.ld.admin.ch/i14y/mappingtable/{identifier}/version/{version}. "
+        "Do not invent IRIs; only use iri values returned by tools. "
+
+        "Do not invent portal URLs/IRIs; only use URLs/IRIs returned by tools."
     ),
     host="0.0.0.0",
     port=get_server_port(),

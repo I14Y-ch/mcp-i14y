@@ -20,11 +20,19 @@ def register(mcp: FastMCP) -> None:
         dataservice_identifier: str | None = None,
         page: int = 1,
         page_size: int = 25,
-    ) -> str:
+        fetch_all: bool = False,
+        max_pages: int | None = None,
+    ) -> dict:
         """List data services (APIs) registered on the Swiss I14Y platform.
 
-        Data services are electronic interfaces (APIs) that provide access to
-        datasets or functionality published by Swiss federal and cantonal bodies.
+        Data services are electronic interfaces (APIs) that provide access to datasets
+        or functionality published by Swiss federal and cantonal bodies.
+
+        Pagination:
+            By default this returns one page and includes pagination metadata from
+            the API response headers. If fetch_all=True, all available pages are
+            fetched unless max_pages is set. Use fetch_all=True only when the user
+            explicitly asks for all matching data services or a complete scan.
 
         Args:
             publisher_identifier: Filter by the publishing organisation's identifier.
@@ -35,38 +43,57 @@ def register(mcp: FastMCP) -> None:
             dataservice_identifier: Filter by the data service's own identifier.
             page: Page number (starts at 1).
             page_size: Number of results per page (default 25).
+            fetch_all: Fetch all pages instead of only one page.
+            max_pages: Optional maximum number of pages to fetch when fetch_all=True.
 
         Returns:
-            JSON string with paginated data service results.
+            JSON string with data service results and pagination metadata.
         """
+        common_params = dict(
+            publisherIdentifier=publisher_identifier,
+            registrationStatus=registration_status,
+            publicationLevel=publication_level,
+            accessRights=access_rights,
+            dataserviceIdentifier=dataservice_identifier,
+        )
+
         async with I14YApiClient() as client:
+            if fetch_all:
+                return await client.get_all_pages(
+                    "/dataservices",
+                    page_size=page_size,
+                    max_pages=max_pages,
+                    resource_type="dataservice",
+                    **common_params,
+                )
+
             return await client.get(
                 "/dataservices",
-                publisherIdentifier=publisher_identifier,
-                registrationStatus=registration_status,
-                publicationLevel=publication_level,
-                accessRights=access_rights,
-                dataserviceIdentifier=dataservice_identifier,
                 page=page,
                 pageSize=page_size,
+                resource_type="dataservice",
+                **common_params,
             )
 
     @mcp.tool()
-    async def get_dataservice(dataservice_id: str) -> str:
+    async def get_dataservice(dataservice_id: str) -> dict:
         """Get detailed metadata for a specific data service by its ID.
 
         Args:
             dataservice_id: The unique identifier of the data service.
 
         Returns:
-            JSON string with full data service metadata (title, description,
-            endpoint URL, publisher, themes, etc.).
+            JSON string with full data service metadata (title, description, endpoint URL,
+            publisher, themes, etc.).
         """
         async with I14YApiClient() as client:
-            return await client.get(f"/dataservices/{dataservice_id}")
+            return await client.get(
+                f"/dataservices/{dataservice_id}",
+                resource_type="dataservice",
+            )
 
     @mcp.tool()
-    async def get_dataservice_by_identifier(identifier: str) -> str:
+    async def get_dataservice_by_identifier(identifier: str) -> dict:
         """Get a data service by its human-readable identifier (not UUID).
 
         Args:
