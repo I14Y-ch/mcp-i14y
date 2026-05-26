@@ -1,10 +1,10 @@
-"""MCP tools for full-text search across I14Y resources (via CORE API)."""
+"""MCP tools for full-text search across I14Y resources."""
 
 from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from helpers.core_api_client import CoreApiClient
+from helpers.i14y_api_client import I14YApiClient
 
 __all__ = ["register"]
 
@@ -85,19 +85,17 @@ def register(mcp: FastMCP) -> None:
             statuses=statuses,
         )
 
-        async with CoreApiClient() as client:
+        async with I14YApiClient() as client:
             if fetch_all:
                 return await client.get_all_pages(
-                    "/Catalog/search",
+                    "/search",
                     page_size=page_size,
                     max_pages=max_pages,
-                    catalog_search=True,
                     **common_params,
                 )
 
             return await client.get(
-                "/Catalog/search",
-                catalog_search=True,
+                "/search",
                 page=page,
                 pageSize=page_size,
                 **common_params,

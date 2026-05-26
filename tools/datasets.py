@@ -36,8 +36,8 @@ def register(mcp: FastMCP) -> None:
 
         Note:
             The I14Y `/api/datasets` endpoint does not support a structure filter.
-            When `with_structure` is provided, this tool automatically uses CORE
-            `/Catalog/search` with `types=["Dataset"]` and `structure`
+            When `with_structure` is provided, this tool automatically uses
+            `/api/search` with `types=["Dataset"]` and `structure`
             (`WithStructure`/`WithoutStructure`).
 
         Pagination:
@@ -53,7 +53,7 @@ def register(mcp: FastMCP) -> None:
             publication_level: "Internal" or "Public".
             access_rights: Filter by access restriction code.
             dataset_identifier: Filter by the dataset's own identifier.
-            with_structure: Filter by structure-model availability via CORE search.
+            with_structure: Filter by structure-model availability via search endpoint.
             page: Page number (starts at 1).
             page_size: Number of results per page (default 25).
             fetch_all: Fetch all pages instead of only one page.
@@ -81,19 +81,17 @@ def register(mcp: FastMCP) -> None:
                 structure=_STRUCTURE_FILTER_MAP[with_structure],
             )
 
-            async with CoreApiClient() as client:
+            async with I14YApiClient() as client:
                 if fetch_all:
                     return await client.get_all_pages(
-                        "/Catalog/search",
+                        "/search",
                         page_size=page_size,
                         max_pages=max_pages,
-                        catalog_search=True,
                         **search_params,
                     )
 
                 return await client.get(
-                    "/Catalog/search",
-                    catalog_search=True,
+                    "/search",
                     page=page,
                     pageSize=page_size,
                     **search_params,
@@ -166,8 +164,22 @@ def register(mcp: FastMCP) -> None:
         Returns:
             JSON object with full dataset metadata.
         """
-        async with CoreApiClient() as client:
-            return await client.get(f"/Datasets/by-identifier/{identifier}")
+        async with I14YApiClient() as client:
+            response = await client.get(
+                "/datasets",
+                resource_type="dataset",
+                datasetIdentifier=identifier,
+                page=1,
+                pageSize=1,
+            )
+
+            data = response.get("data") if isinstance(response, dict) else None
+            if isinstance(data, list):
+                if data:
+                    return data[0]
+                return {"error": f"Dataset not found for identifier '{identifier}'"}
+
+            return response
 
     @mcp.tool()
     async def check_dataset_has_structure(dataset_id: str) -> dict:

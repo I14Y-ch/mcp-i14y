@@ -173,8 +173,19 @@ def register(mcp: FastMCP) -> None:
         Returns:
             JSON array of concepts matching the identifier, with full metadata.
         """
-        async with CoreApiClient() as client:
-            return await client.get(f"/Concepts/identifier/{identifier}")
+        async with I14YApiClient() as client:
+            response = await client.get(
+                "/concepts",
+                resource_type="concept",
+                conceptIdentifier=identifier,
+                page=1,
+                pageSize=100,
+            )
+
+            if isinstance(response, dict) and isinstance(response.get("data"), list):
+                return response["data"]
+
+            return response
 
     @mcp.tool()
     async def get_codelist_entries(

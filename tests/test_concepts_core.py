@@ -54,8 +54,8 @@ MOCK_SEARCH_ENTRIES = json.dumps({
 
 @pytest.mark.asyncio
 async def test_get_concept_by_identifier():
-    with patch("helpers.core_api_client.CoreApiClient.get", new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = MOCK_CONCEPT_BY_ID
+    with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = json.dumps({"data": json.loads(MOCK_CONCEPT_BY_ID)})
         from mcp.server.fastmcp import FastMCP
         from tools.concepts import register
 

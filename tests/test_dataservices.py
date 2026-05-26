@@ -30,6 +30,16 @@ MOCK_DATASERVICE_DETAIL = json.dumps({
     "publicationLevel": "Public",
 })
 
+MOCK_DATASERVICE_BY_IDENTIFIER_RESPONSE = json.dumps({
+    "data": [
+        {
+            "id": "svc-001",
+            "identifier": "geo-api",
+            "title": {"de": "Geodaten API"},
+        }
+    ]
+})
+
 
 @pytest.mark.asyncio
 async def test_list_dataservices():
@@ -63,3 +73,20 @@ async def test_get_dataservice():
     parsed = json.loads(result)
     assert parsed["id"] == "svc-001"
     assert "endpointUrl" in parsed
+
+
+@pytest.mark.asyncio
+async def test_get_dataservice_by_identifier():
+    with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = MOCK_DATASERVICE_BY_IDENTIFIER_RESPONSE
+        from tools.dataservices import register
+        from mcp.server.fastmcp import FastMCP
+
+        mcp = FastMCP("test")
+        register(mcp)
+
+        tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "get_dataservice_by_identifier")
+        result = await tool.fn(identifier="geo-api")
+
+    parsed = json.loads(result)
+    assert parsed["identifier"] == "geo-api"

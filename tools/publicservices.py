@@ -54,7 +54,7 @@ def register(mcp: FastMCP) -> None:
             registrationStatus=registration_status,
             publicationLevel=publication_level,
             accessRights=access_rights,
-            publicserviceIdentifier=publicservice_identifier,
+            publicServiceIdentifier=publicservice_identifier,
         )
 
         async with I14YApiClient() as client:
@@ -101,8 +101,22 @@ def register(mcp: FastMCP) -> None:
         Returns:
             JSON object with full public service metadata.
         """
-        async with CoreApiClient() as client:
-            return await client.get(f"/PublicServices/by-identifier/{identifier}")
+        async with I14YApiClient() as client:
+            response = await client.get(
+                "/publicservices",
+                resource_type="publicservice",
+                publicServiceIdentifier=identifier,
+                page=1,
+                pageSize=1,
+            )
+
+            data = response.get("data") if isinstance(response, dict) else None
+            if isinstance(data, list):
+                if data:
+                    return data[0]
+                return {"error": f"Public service not found for identifier '{identifier}'"}
+
+            return response
 
     @mcp.tool()
     async def get_publicservice_relations(publicservice_id: str) -> dict:

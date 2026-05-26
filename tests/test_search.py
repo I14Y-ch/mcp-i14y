@@ -1,4 +1,4 @@
-"""Unit tests for catalog_search tool."""
+"""Unit tests for full_text_search_resources tool."""
 
 from __future__ import annotations
 
@@ -32,15 +32,17 @@ MOCK_SEARCH_RESULTS = json.dumps([
 
 
 @pytest.mark.asyncio
-async def test_catalog_search_returns_results():
-    with patch("helpers.core_api_client.CoreApiClient.get", new_callable=AsyncMock) as mock_get:
+async def test_full_text_search_returns_results():
+    with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = MOCK_SEARCH_RESULTS
         from mcp.server.fastmcp import FastMCP
         from tools.search import register
 
         mcp = FastMCP("test")
         register(mcp)
-        tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "catalog_search")
+        tool = next(
+            t for t in mcp._tool_manager.list_tools() if t.name == "full_text_search_resources"
+        )
         result = await tool.fn(query="canton")
 
     parsed = json.loads(result)
@@ -50,15 +52,17 @@ async def test_catalog_search_returns_results():
 
 
 @pytest.mark.asyncio
-async def test_catalog_search_with_type_filter():
-    with patch("helpers.core_api_client.CoreApiClient.get", new_callable=AsyncMock) as mock_get:
+async def test_full_text_search_with_type_filter():
+    with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = MOCK_SEARCH_RESULTS
         from mcp.server.fastmcp import FastMCP
         from tools.search import register
 
         mcp = FastMCP("test")
         register(mcp)
-        tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "catalog_search")
+        tool = next(
+            t for t in mcp._tool_manager.list_tools() if t.name == "full_text_search_resources"
+        )
         result = await tool.fn(query="canton", types=["Concept"])
 
     mock_get.assert_called_once()
@@ -67,13 +71,13 @@ async def test_catalog_search_with_type_filter():
 
 
 @pytest.mark.asyncio
-async def test_catalog_search_invalid_type():
+async def test_full_text_search_invalid_type():
     from mcp.server.fastmcp import FastMCP
     from tools.search import register
 
     mcp = FastMCP("test")
     register(mcp)
-    tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "catalog_search")
+    tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "full_text_search_resources")
     result = await tool.fn(query="canton", types=["InvalidType"])
 
     parsed = json.loads(result)

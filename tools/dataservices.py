@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from helpers.core_api_client import CoreApiClient
 from helpers.i14y_api_client import I14YApiClient
 
 __all__ = ["register"]
@@ -54,7 +53,7 @@ def register(mcp: FastMCP) -> None:
             registrationStatus=registration_status,
             publicationLevel=publication_level,
             accessRights=access_rights,
-            dataserviceIdentifier=dataservice_identifier,
+            dataServiceIdentifier=dataservice_identifier,
         )
 
         async with I14YApiClient() as client:
@@ -102,5 +101,19 @@ def register(mcp: FastMCP) -> None:
         Returns:
             JSON object with full data service metadata.
         """
-        async with CoreApiClient() as client:
-            return await client.get(f"/DataServices/by-identifier/{identifier}")
+        async with I14YApiClient() as client:
+            response = await client.get(
+                "/dataservices",
+                resource_type="dataservice",
+                dataServiceIdentifier=identifier,
+                page=1,
+                pageSize=1,
+            )
+
+            data = response.get("data") if isinstance(response, dict) else None
+            if isinstance(data, list):
+                if data:
+                    return data[0]
+                return {"error": f"Data service not found for identifier '{identifier}'"}
+
+            return response

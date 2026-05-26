@@ -21,9 +21,23 @@ USER_AGENT = f"mcp-i14y/{VERSION} (https://github.com/I14Y-ch/mcp-i14y)"
 _PLAIN_TEXT_TYPES = {"text/turtle", "application/rdf+xml", "text/csv", "text/plain"}
 
 
-def _build_params(**kwargs: object) -> dict[str, str]:
-    """Build a query-parameter dict, dropping any None values."""
-    return {k: str(v) for k, v in kwargs.items() if v is not None}
+def _build_params(**kwargs: object) -> dict[str, str | list[str]]:
+    """Build a query-parameter dict, dropping any None values.
+
+    List values are sent as repeated query parameters by httpx.
+    """
+    result: dict[str, str | list[str]] = {}
+
+    for k, v in kwargs.items():
+        if v is None:
+            continue
+
+        if isinstance(v, list):
+            result[k] = [str(i) for i in v if i is not None]
+        else:
+            result[k] = str(v)
+
+    return result
 
 
 def _int_header(headers: httpx.Headers, name: str) -> int | None:

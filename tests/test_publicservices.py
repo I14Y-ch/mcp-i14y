@@ -29,6 +29,16 @@ MOCK_PUBLICSERVICE_DETAIL = json.dumps({
     "publicationLevel": "Public",
 })
 
+MOCK_PUBLICSERVICE_BY_IDENTIFIER_RESPONSE = json.dumps({
+    "data": [
+        {
+            "id": "ps-001",
+            "identifier": "tax-declaration-service",
+            "title": {"de": "Steuererklärung einreichen"},
+        }
+    ]
+})
+
 
 @pytest.mark.asyncio
 async def test_list_publicservices():
@@ -62,3 +72,20 @@ async def test_get_publicservice():
     parsed = json.loads(result)
     assert parsed["id"] == "ps-001"
     assert parsed["registrationStatus"] == "Recorded"
+
+
+@pytest.mark.asyncio
+async def test_get_publicservice_by_identifier():
+    with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = MOCK_PUBLICSERVICE_BY_IDENTIFIER_RESPONSE
+        from tools.publicservices import register
+        from mcp.server.fastmcp import FastMCP
+
+        mcp = FastMCP("test")
+        register(mcp)
+
+        tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "get_publicservice_by_identifier")
+        result = await tool.fn(identifier="tax-declaration-service")
+
+    parsed = json.loads(result)
+    assert parsed["identifier"] == "tax-declaration-service"

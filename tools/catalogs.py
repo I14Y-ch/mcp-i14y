@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from helpers.core_api_client import CoreApiClient
 from helpers.i14y_api_client import I14YApiClient
 
 __all__ = ["register"]
@@ -63,15 +62,15 @@ def register(mcp: FastMCP) -> None:
         Returns:
             JSON object with catalog results and pagination metadata.
         """
-        async with CoreApiClient() as client:
+        async with I14YApiClient() as client:
             if fetch_all:
                 return await client.get_all_pages(
-                    "/DcatCatalogs",
+                    "/catalogs",
                     page_size=page_size,
                     max_pages=max_pages,
                 )
 
-            return await client.get("/DcatCatalogs", page=page, pageSize=page_size)
+            return await client.get("/catalogs", page=page, pageSize=page_size)
 
     @mcp.tool()
     async def get_catalog_records(
@@ -101,16 +100,16 @@ def register(mcp: FastMCP) -> None:
         Returns:
             JSON object with catalog records and pagination metadata.
         """
-        async with CoreApiClient() as client:
+        async with I14YApiClient() as client:
             if fetch_all:
                 return await client.get_all_pages(
-                    f"/DcatCatalogs/{catalog_id}/records",
+                    f"/catalogs/{catalog_id}/records",
                     page_size=page_size,
                     max_pages=max_pages,
                 )
 
             return await client.get(
-                f"/DcatCatalogs/{catalog_id}/records",
+                f"/catalogs/{catalog_id}/records",
                 page=page,
                 pageSize=page_size,
             )
@@ -144,16 +143,16 @@ def register(mcp: FastMCP) -> None:
         Returns:
             JSON object with catalog themes and pagination metadata.
         """
-        async with CoreApiClient() as client:
+        async with I14YApiClient() as client:
             if fetch_all:
                 return await client.get_all_pages(
-                    f"/DcatCatalogs/{catalog_id}/themes",
+                    f"/catalogs/{catalog_id}/themes",
                     page_size=page_size,
                     max_pages=max_pages,
                 )
 
             return await client.get(
-                f"/DcatCatalogs/{catalog_id}/themes",
+                f"/catalogs/{catalog_id}/themes",
                 page=page,
                 pageSize=page_size,
             )

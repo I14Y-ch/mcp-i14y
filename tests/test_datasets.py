@@ -29,6 +29,16 @@ MOCK_DATASET_DETAIL = json.dumps({
     "publicationLevel": "Public",
 })
 
+MOCK_DATASET_BY_IDENTIFIER_RESPONSE = json.dumps({
+    "data": [
+        {
+            "id": "ds-001",
+            "identifier": "px-x-0602010000_109",
+            "title": {"de": "Bevölkerungsstatistik"},
+        }
+    ]
+})
+
 MOCK_STRUCTURE = "@prefix dcat: <http://www.w3.org/ns/dcat#> ."
 
 
@@ -68,7 +78,7 @@ async def test_list_datasets_with_publisher_filter():
 
 @pytest.mark.asyncio
 async def test_list_datasets_with_structure_filter():
-    with patch("helpers.core_api_client.CoreApiClient.get", new_callable=AsyncMock) as mock_get:
+    with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = MOCK_DATASETS_RESPONSE
         from tools.datasets import register
         from mcp.server.fastmcp import FastMCP
@@ -81,14 +91,14 @@ async def test_list_datasets_with_structure_filter():
 
     mock_get.assert_called_once()
     call_args, call_kwargs = mock_get.call_args
-    assert call_args[0] == "/Catalog/search"
+    assert call_args[0] == "/search"
     assert call_kwargs["types"] == ["Dataset"]
     assert call_kwargs["structure"] == "WithStructure"
 
 
 @pytest.mark.asyncio
 async def test_list_datasets_with_structure_filter_false():
-    with patch("helpers.core_api_client.CoreApiClient.get", new_callable=AsyncMock) as mock_get:
+    with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = MOCK_DATASETS_RESPONSE
         from tools.datasets import register
         from mcp.server.fastmcp import FastMCP
@@ -101,7 +111,7 @@ async def test_list_datasets_with_structure_filter_false():
 
     mock_get.assert_called_once()
     call_args, call_kwargs = mock_get.call_args
-    assert call_args[0] == "/Catalog/search"
+    assert call_args[0] == "/search"
     assert call_kwargs["structure"] == "WithoutStructure"
 
 
@@ -149,6 +159,23 @@ async def test_get_dataset_structure_valid():
         result = await tool.fn(dataset_id="ds-001", format="Ttl")
 
     assert "dcat" in result
+
+
+@pytest.mark.asyncio
+async def test_get_dataset_by_identifier():
+    with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = MOCK_DATASET_BY_IDENTIFIER_RESPONSE
+        from tools.datasets import register
+        from mcp.server.fastmcp import FastMCP
+
+        mcp = FastMCP("test")
+        register(mcp)
+
+        tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "get_dataset_by_identifier")
+        result = await tool.fn(identifier="px-x-0602010000_109")
+
+    parsed = json.loads(result)
+    assert parsed["identifier"] == "px-x-0602010000_109"
 
 
 @pytest.mark.asyncio

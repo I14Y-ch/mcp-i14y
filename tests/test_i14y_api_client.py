@@ -28,6 +28,14 @@ def test_build_params_converts_to_str():
     assert result == {"page": "2", "pageSize": "25"}
 
 
+def test_build_params_preserves_lists():
+    result = _build_params(types=["Dataset", "Concept"], statuses=["Recorded"])
+    assert result == {
+        "types": ["Dataset", "Concept"],
+        "statuses": ["Recorded"],
+    }
+
+
 # ── Context manager ────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
