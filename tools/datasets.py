@@ -9,6 +9,11 @@ from helpers.i14y_api_client import I14YApiClient
 
 __all__ = ["register"]
 
+_STRUCTURE_FILTER_MAP = {
+    True: "WithStructure",
+    False: "WithoutStructure",
+}
+
 
 def register(mcp: FastMCP) -> None:
     @mcp.tool()
@@ -27,8 +32,13 @@ def register(mcp: FastMCP) -> None:
         """List datasets from the Swiss I14Y interoperability platform.
 
         Supports filtering by publisher, registration status, publication level,
-        access rights, a specific dataset identifier, and whether datasets have
-        a documented structure model.
+        access rights, and a specific dataset identifier.
+
+        Note:
+            The I14Y `/api/datasets` endpoint does not support a structure filter.
+            When `with_structure` is provided, this tool automatically uses CORE
+            `/Catalog/search` with `types=["Dataset"]` and `structure`
+            (`WithStructure`/`WithoutStructure`).
 
         Pagination:
             By default this returns one page and includes pagination metadata from
@@ -43,7 +53,7 @@ def register(mcp: FastMCP) -> None:
             publication_level: "Internal" or "Public".
             access_rights: Filter by access restriction code.
             dataset_identifier: Filter by the dataset's own identifier.
-            with_structure: Filter by structure-model availability.
+            with_structure: Filter by structure-model availability via CORE search.
             page: Page number (starts at 1).
             page_size: Number of results per page (default 25).
             fetch_all: Fetch all pages instead of only one page.
@@ -58,8 +68,36 @@ def register(mcp: FastMCP) -> None:
             publicationLevel=publication_level,
             accessRights=access_rights,
             datasetIdentifier=dataset_identifier,
-            withStructure=with_structure,
         )
+
+        if with_structure is not None:
+            search_params = dict(
+                query=dataset_identifier,
+                types=["Dataset"],
+                publishers=[publisher_identifier] if publisher_identifier else None,
+                statuses=[registration_status] if registration_status else None,
+                publicationLevels=[publication_level] if publication_level else None,
+                accessRights=[access_rights] if access_rights else None,
+                structure=_STRUCTURE_FILTER_MAP[with_structure],
+            )
+
+            async with CoreApiClient() as client:
+                if fetch_all:
+                    return await client.get_all_pages(
+                        "/Catalog/search",
+                        page_size=page_size,
+                        max_pages=max_pages,
+                        catalog_search=True,
+                        **search_params,
+                    )
+
+                return await client.get(
+                    "/Catalog/search",
+                    catalog_search=True,
+                    page=page,
+                    pageSize=page_size,
+                    **search_params,
+                )
 
         async with I14YApiClient() as client:
             if fetch_all:

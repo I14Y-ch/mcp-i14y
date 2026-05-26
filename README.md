@@ -193,7 +193,7 @@ List datasets from the I14Y platform with optional filters.
 | `publication_level`    | string  | —       | `Internal` or `Public`                                                                                    |
 | `access_rights`        | string  | —       | Access restriction code                                                                                   |
 | `dataset_identifier`   | string  | —       | Filter by dataset identifier                                                                              |
-| `with_structure`       | boolean | —       | Filter datasets with (`true`) or without (`false`) a structure model                                      |
+| `with_structure`       | boolean | —       | Filter datasets with (`true`) or without (`false`) a structure model (via CORE `Catalog/search`)          |
 | `page`                 | integer | `1`     | Page number                                                                                               |
 | `page_size`            | integer | `25`    | Results per page                                                                                          |
 
