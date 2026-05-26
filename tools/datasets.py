@@ -185,24 +185,3 @@ def register(mcp: FastMCP) -> None:
         """
         async with CoreApiClient() as client:
             return await client.get(f"/Datasets/{dataset_id}/model/exists")
-
-    @mcp.tool()
-    async def get_dataset_model_graph(dataset_id: str) -> dict:
-        """Get the structural model of a dataset as a schema graph.
-
-        Returns the dataset schema in schemaGraph format — a JSON representation of
-        the model as a graph of nodes and edges, suitable for programmatic processing
-        and visualisation. Complements get_dataset_structure() which returns RDF/JSON-LD
-        formats.
-
-        Only works for datasets that have a structure (use check_dataset_has_structure()
-        to verify first).
-
-        Args:
-            dataset_id: The unique identifier (UUID) of the dataset.
-
-        Returns:
-            JSON object representing the dataset schema as a graph.
-        """
-        async with CoreApiClient() as client:
-            return await client.get(f"/Datasets/{dataset_id}/model/graph")

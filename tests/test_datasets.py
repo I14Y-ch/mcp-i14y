@@ -179,20 +179,3 @@ async def test_check_dataset_has_structure_false():
         result = await tool.fn(dataset_id="ds-no-struct")
 
     assert result == "false"
-
-
-@pytest.mark.asyncio
-async def test_get_dataset_model_graph():
-    mock_graph = json.dumps({"nodes": [{"id": "var1", "type": "Property"}], "edges": []})
-    with patch("helpers.core_api_client.CoreApiClient.get", new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = mock_graph
-        from mcp.server.fastmcp import FastMCP
-        from tools.datasets import register
-
-        mcp = FastMCP("test")
-        register(mcp)
-        tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "get_dataset_model_graph")
-        result = await tool.fn(dataset_id="ds-001")
-
-    parsed = json.loads(result)
-    assert "nodes" in parsed
