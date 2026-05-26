@@ -67,6 +67,24 @@ async def test_list_datasets_with_publisher_filter():
 
 
 @pytest.mark.asyncio
+async def test_list_datasets_with_structure_filter():
+    with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = MOCK_DATASETS_RESPONSE
+        from tools.datasets import register
+        from mcp.server.fastmcp import FastMCP
+
+        mcp = FastMCP("test")
+        register(mcp)
+
+        tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "list_datasets")
+        await tool.fn(with_structure=True)
+
+    mock_get.assert_called_once()
+    _, call_kwargs = mock_get.call_args
+    assert call_kwargs["withStructure"] is True
+
+
+@pytest.mark.asyncio
 async def test_get_dataset():
     with patch("helpers.i14y_api_client.I14YApiClient.get", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = MOCK_DATASET_DETAIL

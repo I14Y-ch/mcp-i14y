@@ -18,6 +18,7 @@ def register(mcp: FastMCP) -> None:
         publication_level: str | None = None,
         access_rights: str | None = None,
         dataset_identifier: str | None = None,
+        with_structure: bool | None = None,
         page: int = 1,
         page_size: int = 25,
         fetch_all: bool = False,
@@ -26,7 +27,8 @@ def register(mcp: FastMCP) -> None:
         """List datasets from the Swiss I14Y interoperability platform.
 
         Supports filtering by publisher, registration status, publication level,
-        access rights, or a specific dataset identifier.
+        access rights, a specific dataset identifier, and whether datasets have
+        a documented structure model.
 
         Pagination:
             By default this returns one page and includes pagination metadata from
@@ -41,6 +43,7 @@ def register(mcp: FastMCP) -> None:
             publication_level: "Internal" or "Public".
             access_rights: Filter by access restriction code.
             dataset_identifier: Filter by the dataset's own identifier.
+            with_structure: Filter by structure-model availability.
             page: Page number (starts at 1).
             page_size: Number of results per page (default 25).
             fetch_all: Fetch all pages instead of only one page.
@@ -55,6 +58,7 @@ def register(mcp: FastMCP) -> None:
             publicationLevel=publication_level,
             accessRights=access_rights,
             datasetIdentifier=dataset_identifier,
+            withStructure=with_structure,
         )
 
         async with I14YApiClient() as client:
