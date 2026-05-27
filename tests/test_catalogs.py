@@ -49,7 +49,7 @@ async def test_get_catalog_themes_uses_core_endpoint():
         tool = next(t for t in mcp._tool_manager.list_tools() if t.name == "get_catalog_themes")
         await tool.fn(catalog_id="cat-123", page=1, page_size=100)
 
-    mock_get.assert_called_once_with("/catalogs/cat-123/themes", page=1, pageSize=100)
+    mock_get.assert_called_once_with("/dcatcatalogs/cat-123/themes", page=1, pageSize=100)
 
 
 @pytest.mark.asyncio
@@ -65,7 +65,7 @@ async def test_get_catalog_themes_fetch_all_uses_core_endpoint():
         await tool.fn(catalog_id="cat-123", fetch_all=True, page_size=75, max_pages=3)
 
     mock_get_all.assert_called_once_with(
-        "/catalogs/cat-123/themes",
+        "/dcatcatalogs/cat-123/themes",
         page_size=75,
         max_pages=3,
     )

@@ -147,13 +147,13 @@ def register(mcp: FastMCP) -> None:
         async with CoreApiClient() as client:
             if fetch_all:
                 return await client.get_all_pages(
-                    f"/catalogs/{catalog_id}/themes",
+                    f"/dcatcatalogs/{catalog_id}/themes",
                     page_size=page_size,
                     max_pages=max_pages,
                 )
 
             return await client.get(
-                f"/catalogs/{catalog_id}/themes",
+                f"/dcatcatalogs/{catalog_id}/themes",
                 page=page,
                 pageSize=page_size,
             )
