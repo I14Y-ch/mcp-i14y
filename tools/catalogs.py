@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
+from helpers.core_api_client import CoreApiClient
 from helpers.i14y_api_client import I14YApiClient
 
 __all__ = ["register"]
@@ -143,7 +144,7 @@ def register(mcp: FastMCP) -> None:
         Returns:
             JSON object with catalog themes and pagination metadata.
         """
-        async with I14YApiClient() as client:
+        async with CoreApiClient() as client:
             if fetch_all:
                 return await client.get_all_pages(
                     f"/catalogs/{catalog_id}/themes",
